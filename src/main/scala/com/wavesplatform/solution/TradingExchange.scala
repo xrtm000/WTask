@@ -2,6 +2,8 @@ package com.wavesplatform.solution
 
 import com.wavesplatform.solution.MapHelper.Ops
 
+import scala.annotation.tailrec
+
 case class TradingExchange(
   clients: Map[ClientName, Client],
   orders:  Map[(Security, OrderAction), SortedQueue[Order]] = Map().withDefault(k => SortedQueue()(k._2.ordering))
@@ -11,7 +13,7 @@ case class TradingExchange(
     tryFillOrders(oppositeOrders, order)
   }
 
-  private def tryFillOrders(waitingOrders: SortedQueue[Order], incoming: Order): TradingExchange = {
+  @tailrec private def tryFillOrders(waitingOrders: SortedQueue[Order], incoming: Order): TradingExchange = {
     if (waitingOrders.isEmpty) addOrder(incoming)
     else {
       val SortedQueue(head, tail) = waitingOrders

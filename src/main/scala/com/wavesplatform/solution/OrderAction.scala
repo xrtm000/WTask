@@ -6,5 +6,5 @@ sealed abstract class OrderAction(val ordering: Ordering[Order]) {
     case Sell => Buy
   }
 }
-case object Buy extends OrderAction(priceTimePriority)
-case object Sell extends OrderAction(priceTimePriority.reverse)
+case object Buy extends OrderAction(buyPriceTimePriority)
+case object Sell extends OrderAction(sellPriceTimePriority)

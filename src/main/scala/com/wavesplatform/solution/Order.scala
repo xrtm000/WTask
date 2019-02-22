@@ -1,12 +1,12 @@
 package com.wavesplatform.solution
 
 case class Order(
-  number:       Int,
-  clientName:   ClientName,
-  action:       OrderAction,
-  security:     Security,
-  price:        Int,
-  amount:       Int
+  number:     Int,
+  clientName: ClientName,
+  action:     OrderAction,
+  security:   Security,
+  price:      Int,
+  amount:     Int
 ) {
   def tryMatchWith(that: Order): MatchResult =
     (this.action, that.action) match {

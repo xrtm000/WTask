@@ -1,7 +1,16 @@
 package com.wavesplatform
 
 package object solution {
-  val priceTimePriority: Ordering[Order] = Ordering.by(order => (order.price, order.number))
+  val buyPriceTimePriority: Ordering[Order] =
+    (x: Order, y: Order) => {
+      val priceDiff = x.price - y.price
+      if (priceDiff == 0) y.number - x.number else priceDiff
+    }
+  val sellPriceTimePriority: Ordering[Order] =
+    (x: Order, y: Order) => {
+      val priceDiff = y.price - x.price
+      if (priceDiff == 0) y.number - x.number else priceDiff
+    }
 
   type ClientName = String
   type Security   = String

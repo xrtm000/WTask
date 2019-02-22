@@ -14,7 +14,7 @@ class OrderQueueSpec extends FlatSpec {
     assert(buys.tail.head.price == 500)
     assert(buys.tail.head.number == 0)
     assert(buys.tail.tail.head.price == 500)
-    assert(buys.tail.tail.head.price == 2)
+    assert(buys.tail.tail.head.number == 2)
     assert(buys.tail.tail.tail.head.price == 300)
 
     val sells = SortedQueue()(Sell.ordering) +
@@ -27,7 +27,7 @@ class OrderQueueSpec extends FlatSpec {
     assert(sells.tail.head.price == 500)
     assert(sells.tail.head.number == 0)
     assert(sells.tail.tail.head.price == 500)
-    assert(sells.tail.tail.head.price == 2)
+    assert(sells.tail.tail.head.number == 2)
     assert(sells.tail.tail.tail.head.price == 700)
   }
 }

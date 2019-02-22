@@ -33,11 +33,17 @@ object DataMapper {
     SortedMap[ClientName, Client]() ++ name2Client
   }
 
-  private def mapOrders(data: Iterator[String], clients: Map[ClientName, Client]): Iterator[Order] =
-    data.map {
+  private def mapOrders(data: Iterator[String], clients: Map[ClientName, Client]): Iterator[Order] = {
+    val firstCount = new Order(number = 0, "", Buy, "", 0, 0)
+    data.scanLeft(firstCount)((previous, data) => mapOrder(data, previous.number + 1))
+        .drop(1)
+  }
+
+  private def mapOrder(data: String, count: Int): Order = {
+    data match {
       case ordersRegex(clientName, symbol, security, price, amount) =>
         Order(
-          number = Counter.next(),
+          number = count,
           clientName = clientName,
           action = symbol match {
             case "b" => Buy
@@ -48,6 +54,7 @@ object DataMapper {
           amount = amount.toInt
         )
     }
+  }
 
   def toString(clients: Iterable[Client]): Iterable[String] =
     clients
