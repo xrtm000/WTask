@@ -13,45 +13,69 @@ case class TradingExchange(
     tryFillOrders(oppositeOrders, order)
   }
 
-  @tailrec private def tryFillOrders(waitingOrders: SortedQueue[Order], incoming: Order): TradingExchange = {
-    if (waitingOrders.isEmpty) addOrder(incoming)
-    else {
+  @tailrec private def tryFillOrders(
+    waitingOrders: SortedQueue[Order],
+    incoming:      Order,
+    failures:      List[Order] = Nil
+  ): TradingExchange = {
+    if (waitingOrders.isEmpty) {
+      updateOrdersAndAdd(waitingOrders, incoming, failures)
+    } else {
       val SortedQueue(head, tail) = waitingOrders
       incoming.tryMatchWith(head) match {
-        case NoMatch                             => addOrder(incoming)
-        case FullMatch(transaction)              =>
+        case NoMatch                => updateOrdersAndAdd(waitingOrders, incoming, failures)
+        case FullMatch(transaction) =>
           tryApplyTransaction(transaction) match {
-            case Some(exchange) => exchange.removeFilledOrders(tail, incoming)
-            case None => tryFillOrders(tail, incoming)
+            case Success(exchange)        => exchange.updateOrders(tail, incoming, failures)
+            case Failure(incoming.action) => updateOrdersAndAdd(waitingOrders, incoming, failures)
+            case Failure(_)               => tryFillOrders(tail, incoming, head :: failures)
           }
         case PartialMatch(transaction, residual) =>
           tryApplyTransaction(transaction) match {
-            case Some(exchange) =>
-              if (residual.action == incoming.action) exchange.tryFillOrders(tail, residual)
-              else exchange.removeFilledOrders(tail, incoming).addOrder(residual)
-            case None => tryFillOrders(tail, incoming)
+            case Success(exchange)        =>
+              if (residual.action == incoming.action)
+                exchange.tryFillOrders(tail, residual, failures)
+              else
+                exchange.updateOrders(tail + residual, incoming, failures)
+            case Failure(incoming.action) => updateOrdersAndAdd(waitingOrders, incoming, failures)
+            case Failure(_)               => tryFillOrders(tail, incoming, head :: failures)
           }
       }
     }
   }
 
-  private def addOrder(order: Order): TradingExchange = {
+  private def updateOrdersAndAdd(
+    restOrders: SortedQueue[Order],
+    order:      Order,
+    failures:   List[Order] = Nil
+  ): TradingExchange = {
     val key = (order.security, order.action)
     val added = orders(key) + order
-    copy(orders = orders.updated(key, added))
+    val oppositeKey = (order.security, order.action.opposite)
+    val savedOrders = failures.foldLeft(restOrders)((queue, order) => queue + order)
+    copy(orders = orders
+      .updated(key, added)
+      .updated(oppositeKey, savedOrders)
+    )
   }
 
-  private def removeFilledOrders(restOrders: SortedQueue[Order], closed: Order): TradingExchange = {
-    val key = (closed.security, closed.action.opposite)
-    copy(orders = orders.updated(key, restOrders))
+  private def updateOrders(
+    restOrders: SortedQueue[Order],
+    order:      Order,
+    failures:   List[Order] = Nil
+  ): TradingExchange = {
+    val oppositeKey = (order.security, order.action.opposite)
+    val savedOrders = failures.foldLeft(restOrders)((queue, order) => queue + order)
+    copy(orders = orders.updated(oppositeKey, savedOrders))
   }
 
-  private def tryApplyTransaction(transaction: Transaction): Option[TradingExchange] = {
+  private def tryApplyTransaction(transaction: Transaction): TransactionResult = {
     val Transaction(buyerName, sellerName, price, security, amount) = transaction
     val buyer  = clients(buyerName)
     val seller = clients(sellerName)
 
-    if (!checkMinus(buyer, seller, security, price, amount)) None
+    if (buyer.cash < price * amount) Failure(Buy)
+    else if (seller.securitiesAmount(security) < amount) Failure(Sell)
     else {
       val exchange = copy(
         clients = clients + (
@@ -65,19 +89,7 @@ case class TradingExchange(
           )
         )
       )
-      Some(exchange)
+      Success(exchange)
     }
-  }
-
-  private def checkMinus(
-    buyer:    Client,
-    seller:   Client,
-    security: Security,
-    price:    Int,
-    amount:   Int
-  ): Boolean = {
-    val reducedCash = buyer.cash - price * amount
-    val reducedSecurityAmount = seller.securitiesAmount(security) - amount
-    reducedCash >= 0 && reducedSecurityAmount >= 0
   }
 }

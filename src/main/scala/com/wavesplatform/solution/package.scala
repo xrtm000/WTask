@@ -33,4 +33,8 @@ package object solution {
   case class  FullMatch(transaction: Transaction) extends MatchResult
   case class  PartialMatch(transaction: Transaction, residual: Order) extends MatchResult
   case object NoMatch extends MatchResult
+
+  sealed abstract class TransactionResult
+  case class  Success(exchange: TradingExchange) extends TransactionResult
+  case class  Failure(action: OrderAction)       extends TransactionResult
 }
