@@ -1,19 +1,15 @@
 package com.wavesplatform.solution
 
-/**
-  * Immutable PriorityQueue in Scala
-  * Most functions run in O(log n)
-  * Developed in Scala version 2.7.7
-  * Implementation: Leftist Heap (See "Purely Functional Data Structures")
-  *
-  * @author Masaki Hara (ackie.h.gmai@gmail.com)
-  */
+import scala.annotation.tailrec
+
 object SortedQueue {
   def apply[A]()(implicit ord: Ordering[A]): SortedQueue[A] = empty
 
   def apply[A](elem: A)(implicit ord: Ordering[A]): SortedQueue[A] = single(elem)
 
-  def unapply[A](arg: SortedQueue[A]): Option[(A, SortedQueue[A])] = Some(arg.head, arg.tail)
+  def unapply[A](queue: SortedQueue[A]): Option[(A, SortedQueue[A])] =
+    if (queue.isEmpty) None
+    else Some(queue.head, queue.tail)
 
   def empty[A](implicit ord: Ordering[A]): SortedQueue[A] = Empty[A]()
 
@@ -64,6 +60,14 @@ sealed abstract class SortedQueue[A](implicit val ord: Ordering[A]) {
       throw new RuntimeException("ordering should equal")
 
   def +(elem: A): SortedQueue[A] = SortedQueue.merge(this, SortedQueue.single(elem))
+
+  @tailrec final def get(index: Int): A =
+    if (index < 0 || index >= length)
+      throw new IndexOutOfBoundsException(s"Trying get $index element for length $length")
+    else if (index == 0) head
+    else tail.get(index - 1)
+
+  def apply(index: Int): A = get(index)
 }
 
 private case class Empty[A]()(implicit override val ord: Ordering[A]) extends SortedQueue[A] {
