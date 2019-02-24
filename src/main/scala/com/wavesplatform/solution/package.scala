@@ -14,12 +14,7 @@ package object solution {
 
   type ClientName = String
   type Security   = String
-
-  case class Client(
-    name:             ClientName,
-    cash:             Int,
-    securitiesAmount: Map[Security, Int]
-  )
+  type ClientBalanceChange = Client
 
   case class Transaction(
     buyerName:   ClientName,
@@ -34,7 +29,11 @@ package object solution {
   case class  PartialMatch(transaction: Transaction, residual: Order) extends MatchResult
   case object NoMatch extends MatchResult
 
-  sealed abstract class TransactionResult
-  case class  Success(exchange: TradingExchange) extends TransactionResult
-  case class  Failure(action: OrderAction)       extends TransactionResult
+  sealed abstract class TransactionCheck
+  case object Success extends TransactionCheck
+  case class  Failure(action: OrderAction) extends TransactionCheck
+
+  sealed abstract class FillOrderResult
+  case object Closed extends FillOrderResult
+  case class  Postponed(order: Order) extends FillOrderResult
 }
