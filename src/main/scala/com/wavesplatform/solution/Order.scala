@@ -38,7 +38,8 @@ case class Order(
   }
 
   private def calcAmountAndResidual(opposite: Order, number: Int): (Int, Order) = {
-    if (this.amount > opposite.amount)
+    if (this.amount == opposite.amount) throw new RuntimeException("Trying calculate residual for equal amounts")
+    else if (this.amount > opposite.amount)
       (
         opposite.amount,
         Order(
