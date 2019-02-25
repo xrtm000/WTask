@@ -5,13 +5,14 @@ import org.scalatest.FlatSpec
 import scala.collection.immutable.SortedMap
 
 class TradingExchangeSpec extends FlatSpec {
-  val clients = SortedMap(
-    "C1" -> Client("C1", 1000, Map("A" -> 10, "B" -> 20, "C" -> 0, "D" -> 0)),
-    "C2" -> Client("C2", 1000, Map("A" -> 0, "B" -> 0, "C" -> 10, "D" -> 20))
-  )
-  val exchange = TradingExchange(clients)
 
   "Exchange" should "fully match opposite orders with same amount" in {
+    val clients = SortedMap(
+      "C1" -> Client("C1", 1000, Map("A" -> 10, "B" -> 20, "C" -> 0, "D" -> 0)),
+      "C2" -> Client("C2", 1000, Map("A" -> 0, "B" -> 0, "C" -> 10, "D" -> 20))
+    )
+    val exchange = TradingExchange(clients)
+
     val order = Order(
       number = 0,
       clientName = "C1",
@@ -41,6 +42,12 @@ class TradingExchangeSpec extends FlatSpec {
   }
 
   "Exchange" should "partially match opposite orders with different amount" in {
+    val clients = SortedMap(
+      "C1" -> Client("C1", 1000, Map("A" -> 10, "B" -> 20, "C" -> 0, "D" -> 0)),
+      "C2" -> Client("C2", 1000, Map("A" -> 0, "B" -> 0, "C" -> 10, "D" -> 20))
+    )
+    val exchange = TradingExchange(clients)
+
     val order = Order(
       number = 0,
       clientName = "C1",
@@ -72,6 +79,12 @@ class TradingExchangeSpec extends FlatSpec {
   }
 
   "Exchange" should "prevent negative cash for buyer" in {
+    val clients = SortedMap(
+      "C1" -> Client("C1", 1000, Map("A" -> 10, "B" -> 20, "C" -> 0, "D" -> 0)),
+      "C2" -> Client("C2", 1000, Map("A" -> 0, "B" -> 0, "C" -> 10, "D" -> 20))
+    )
+    val exchange = TradingExchange(clients)
+
     val order = Order(
       number = 0,
       clientName = "C1",
@@ -99,6 +112,12 @@ class TradingExchangeSpec extends FlatSpec {
   }
 
   "Exchange" should "prevent negative security amount for seller" in {
+    val clients = SortedMap(
+      "C1" -> Client("C1", 1000, Map("A" -> 10, "B" -> 20, "C" -> 0, "D" -> 0)),
+      "C2" -> Client("C2", 1000, Map("A" -> 0, "B" -> 0, "C" -> 10, "D" -> 20))
+    )
+    val exchange = TradingExchange(clients)
+
     val order = Order(
       number = 0,
       clientName = "C1",
@@ -126,13 +145,13 @@ class TradingExchangeSpec extends FlatSpec {
   }
 
   "Exchange" should "fill as many orders as possible by incoming order" in {
-    val extendedClients = SortedMap(
+    val clients = SortedMap(
       "C1" -> Client("C1", 1000, Map("A" -> 10, "B" -> 20, "C" -> 0, "D" -> 0)),
       "C2" -> Client("C2", 1000, Map("A" -> 0, "B" -> 0, "C" -> 10, "D" -> 20)),
       "C3" -> Client("C3", 1000, Map("A" -> 0, "B" -> 0, "C" -> 0, "D" -> 0)),
       "C4" -> Client("C4", 1000, Map("A" -> 0, "B" -> 0, "C" -> 0, "D" -> 0))
     )
-    val exchange = TradingExchange(extendedClients)
+    val exchange = TradingExchange(clients)
 
     val buyOrder1 = Order(
       number = 1,
@@ -189,8 +208,78 @@ class TradingExchangeSpec extends FlatSpec {
       "C3" -> Client("C3",  800, Map("A" -> 2, "B" -> 0, "C" -> 0, "D" -> 0)),
       "C4" -> Client("C4",  600, Map("A" -> 4, "B" -> 0, "C" -> 0, "D" -> 0))
     )
-
     assert(exchange3.orders("A", Buy).isEmpty)
+    assert(exchange3.orders("A", Sell).head == residual)
+    assert(exchange3.clients == resultClients)
+  }
+
+  "Exchange" should "fill as many orders as possible by incoming order " +
+    "with checking opposite order client balance for minus" in {
+    val clients = SortedMap(
+      "C1" -> Client("C1", 1000, Map("A" -> 10, "B" -> 20, "C" -> 0, "D" -> 0)),
+      "C2" -> Client("C2", 1000, Map("A" -> 0, "B" -> 0, "C" -> 10, "D" -> 20)),
+      "C3" -> Client("C3",  100, Map("A" -> 0, "B" -> 0, "C" -> 0, "D" -> 0)),
+      "C4" -> Client("C4", 1000, Map("A" -> 0, "B" -> 0, "C" -> 0, "D" -> 0))
+    )
+    val exchange = TradingExchange(clients)
+
+    val buyOrder1 = Order(
+      number = 1,
+      clientName = "C2",
+      action = Buy,
+      security = "A",
+      price = 100,
+      amount = 3
+    )
+    val buyOrderLeadingToMinus = Order(
+      number = 2,
+      clientName = "C3",
+      action = Buy,
+      security = "A",
+      price = 100,
+      amount = 2
+    )
+    val buyOrder3 = Order(
+      number = 3,
+      clientName = "C4",
+      action = Buy,
+      security = "A",
+      price = 100,
+      amount = 4
+    )
+    val exchange2 = exchange
+      .processOrder(buyOrder1)
+      .processOrder(buyOrderLeadingToMinus)
+      .processOrder(buyOrder3)
+
+    assert(exchange2.orders("A", Buy).length == 3)
+
+    val sellOrder = Order(
+      number = 4,
+      clientName = "C1",
+      action = Sell,
+      security = "A",
+      price = 50,
+      amount = 10
+    )
+    val exchange3 = exchange2.processOrder(sellOrder)
+
+    val residual = Order(
+      number = 4,
+      clientName = "C1",
+      action = Sell,
+      security = "A",
+      price = 50,
+      amount = 3
+    )
+    val resultClients = SortedMap(
+      "C1" -> Client("C1", 1700, Map("A" -> 3, "B" -> 20, "C" -> 0, "D" -> 0)),
+      "C2" -> Client("C2",  700, Map("A" -> 3, "B" -> 0, "C" -> 10, "D" -> 20)),
+      "C3" -> Client("C3",  100, Map("A" -> 0, "B" -> 0, "C" -> 0, "D" -> 0)),
+      "C4" -> Client("C4",  600, Map("A" -> 4, "B" -> 0, "C" -> 0, "D" -> 0))
+    )
+    assert(exchange3.orders("A", Buy).length == 1)
+    assert(exchange3.orders("A", Buy).head == buyOrderLeadingToMinus)
     assert(exchange3.orders("A", Sell).head == residual)
     assert(exchange3.clients == resultClients)
   }
